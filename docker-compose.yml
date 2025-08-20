@@ -34,6 +34,21 @@ services:
       # Uncomment the below line if you plan to use a mapped config file. 
       # - "/path/to/config/config.txt:/root/terraria-server/serverconfig.txt"
 
+  # Web Terminal Service for tModLoader Console
+  ttyd:
+    image: 'tsl0922/ttyd:latest'
+    container_name: 'ttyd-web-terminal'
+    command: -c admin:1234 -p 7681 docker exec -it tmodloader tmux attach
+    ports:
+      - "8080:7681"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - tmodloader
+    restart: unless-stopped
+    environment:
+      - TTYD_CREDENTIAL=admin:1234
+
 # Define named volumes
 volumes:
   tmodloader_data:
