@@ -1,7 +1,7 @@
 version: '3'
 services:
   tmodloader:
-    image: 'jacobsmile/tmodloader1.4:latest'
+    # image: 'jacobsmile/tmodloader1.4:latest'
     container_name: 'tmodloader'
     stdin_open: true
     tty: true
