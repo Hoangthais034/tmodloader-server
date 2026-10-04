@@ -4,7 +4,6 @@ services:
     image: 'jacobsmile/tmodloader1.4:latest'
     container_name: 'tmodloader-v20250820'
     stdin_open: true
-    entrypoint: ["sleep", "infinity"]
     tty: true
     ports:
       - "9873:7777"
