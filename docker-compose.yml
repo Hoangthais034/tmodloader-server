@@ -6,7 +6,7 @@ services:
     stdin_open: true
     tty: true
     entrypoint: >
-      /bin/bash -c "(apt-get update && apt-get install -y libicu-dev || apk add icu-libs) && exec /entrypoint.sh"
+      /bin/bash -c "(apt-get update && apt-get install -y libicu-dev || apk add icu-libs) && exec /start.sh"
     ports:
       - "9873:7777"
     expose:
