@@ -6,7 +6,7 @@ services:
     stdin_open: true
     tty: true
     entrypoint: >
-      /bin/bash -c "(apt-get update && apt-get install -y libicu-dev || apk add icu-libs) && exec /terraria-server/LaunchUtils/ScriptCaller.sh -server -tmlsavedirectory '/data/tModLoader' -steamworkshopfolder '/data/steamMods/steamapps/workshop' -config '/terraria-server/serverconfig.txt'"
+      /bin/bash -c "(apt-get update && apt-get install -y libicu-dev || apk add icu-libs) && exec /entrypoint.sh"
     ports:
       - "9873:7777"
     expose:
