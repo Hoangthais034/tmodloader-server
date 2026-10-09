@@ -3,10 +3,12 @@ services:
   tmodloader:
     image: 'jacobsmile/tmodloader1.4:latest'
     container_name: 'tmodloader-v20250820'
+    restart: unless-stopped
+    stop_grace_period: 60s
     stdin_open: true
     tty: true
     entrypoint: >
-      /bin/bash -c "(apt-get update && apt-get install -y libicu-dev || apk add icu-libs) && exec ./entrypoint.sh"
+      /bin/bash -c "(dpkg -s libicu-dev >/dev/null 2>&1 || (apt-get update && apt-get install -y libicu-dev) || apk add icu-libs) && exec bash ./entrypoint.sh"
     ports:
       - "9873:7777"
     expose:
@@ -33,6 +35,11 @@ services:
 
     volumes:
       - "tmodloader_data:/data"
+      # Patched entrypoint (restart-safe, crash logging) overrides the one baked into the image.
+      - "./entrypoint.sh:/terraria-server/entrypoint.sh:ro"
+      # Logs live outside the code folder so they survive Dokploy redeploys.
+      - "../files/logs:/logs"
+      - "../files/logs/tmodloader:/terraria-server/tModLoader-Logs"
       # Uncomment the below line if you plan to use a mapped config file. 
       # - "/path/to/config/config.txt:/root/terraria-server/serverconfig.txt"
 

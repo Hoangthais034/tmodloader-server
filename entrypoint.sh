@@ -1,6 +1,22 @@
 #!/bin/bash
 
 pipe=/tmp/tmod.pipe
+exitFile=/tmp/tmod.exitcode
+logDir=/logs
+logRetentionDays="${TMOD_LOG_RETENTION_DAYS:-14}"
+shutdownRequested=0
+
+# Crash logging: mirror all container output into a timestamped file under /logs and prune old files
+mkdir -p "$logDir"
+logFile="$logDir/console-$(date +%Y%m%d-%H%M%S).log"
+find "$logDir" -maxdepth 1 -name 'console-*.log' -mtime +"$logRetentionDays" -delete 2>/dev/null
+exec > >(tee -a "$logFile") 2>&1
+echo -e "[SYSTEM] $(date -Is) Container starting. Logging to $logFile"
+
+# Restart safety: clear state left behind by a previous run of this same container (docker restart keeps /tmp)
+tmux kill-server 2>/dev/null
+rm -rf /tmp/tmux-* "$pipe" "$exitFile"
+pkill -f autosave.sh 2>/dev/null
 
 echo -e "[SYSTEM] Shutdown Message set to: $TMOD_SHUTDOWN_MESSAGE"
 echo -e "[SYSTEM] Save Interval set to: $TMOD_AUTOSAVE_INTERVAL minutes"
@@ -22,15 +38,19 @@ fi
 
 # Trapped Shutdown, to cleanly shutdown
 function shutdown () {
-  inject "say $TMOD_SHUTDOWN_MESSAGE"
-  sleep 3s
-  inject "exit"
-  tmuxPid=$(pgrep tmux)
-  tmodPid=$(pgrep --oldest --parent $tmuxPid)
-  while [ -e /proc/$tmodPid ]; do
-    sleep .5
-  done
-  rm $pipe
+  shutdownRequested=1
+  echo -e "[SYSTEM] $(date -Is) Shutdown signal received."
+  if tmux has-session 2>/dev/null; then
+    inject "say $TMOD_SHUTDOWN_MESSAGE"
+    sleep 3s
+    inject "exit"
+    for _ in $(seq 1 90); do
+      tmux has-session 2>/dev/null || break
+      sleep 0.5
+    done
+    tmux kill-server 2>/dev/null
+  fi
+  rm -f "$pipe"
 }
 
 # Download Mods
@@ -98,7 +118,7 @@ fi
 # Create the tmux and pipe, so we can inject commands from 'docker exec [container id] inject [command]' on the host
 sleep 5s
 mkfifo $pipe
-tmux new-session -d "$server | tee $pipe"
+tmux new-session -d "bash -c '$server 2>&1 | tee $pipe; echo \${PIPESTATUS[0]} > $exitFile'"
 
 # Call the autosaver
 /terraria-server/autosave.sh &
@@ -106,3 +126,13 @@ tmux new-session -d "$server | tee $pipe"
 # Infinitely print the contents of the pipe, so the container still logs the Terraria Server.
 cat $pipe &
 wait ${!}
+
+# Crash logging: record why the server stopped and exit non-zero on crash so the restart policy kicks in
+sleep 1
+exitCode=$(cat "$exitFile" 2>/dev/null || echo "unknown")
+if [ "$shutdownRequested" -eq 1 ]; then
+  echo -e "[SYSTEM] $(date -Is) Server stopped by shutdown signal (exit code: $exitCode)."
+  exit 0
+fi
+echo -e "[!!] $(date -Is) Server process ended unexpectedly (exit code: $exitCode). See /logs/tmodloader for tModLoader logs."
+exit 1
